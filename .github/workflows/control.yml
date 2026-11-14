@@ -1,0 +1,73 @@
+name: emulator-control-orig
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [30]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reassemble APK from parts
+        run: |
+          set -e
+          cat app.part.* > FreeBirr.apk
+          ls -la FreeBirr.apk
+          sha256sum FreeBirr.apk
+          chmod +x test_ctrl.sh
+          bash -n test_ctrl.sh && echo "test_ctrl.sh OK"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' | sudo tee /etc/udev/rules.d/51-kvm4all.rules
+          sudo udevadm control --reload-rules || true
+          sudo chmod 666 /dev/kvm || true
+          ls -l /dev/kvm || echo "NO /dev/kvm"
+
+      - name: Run app on real (KVM) emulator [API ${{ matrix.api-level }}]
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          target: google_apis
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: bash test_ctrl.sh
+
+      - name: Show verdict (API ${{ matrix.api-level }})
+        run: |
+          echo "===== API ${{ matrix.api-level }} ====="
+          echo "--- ndk.txt ---"; cat ndk.txt 2>/dev/null || true
+          echo "--- install.log ---"; cat install.log 2>/dev/null || true
+          echo "--- install2.log ---"; cat install2.log 2>/dev/null || true
+          echo "--- pkg.list ---"; cat pkg.list 2>/dev/null || true
+          echo "--- verdict ---"; cat verdict.txt 2>/dev/null || true
+          echo "--- launch.log ---"; cat launch.log 2>/dev/null || true
+          echo "--- focus.txt ---"; cat focus.txt 2>/dev/null || true
+          echo "--- crash.log (tail) ---"; tail -20 crash.log 2>/dev/null || true
+
+      - name: Upload artifacts (API ${{ matrix.api-level }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-api${{ matrix.api-level }}
+          path: |
+            ndk.txt
+            df.txt
+            install.log
+            install2.log
+            install_trace.log
+            pkg.list
+            launch.log
+            focus.txt
+            proc.txt
+            crash.log
+            main.log
+            verdict.txt
+          if-no-files-found: ignore

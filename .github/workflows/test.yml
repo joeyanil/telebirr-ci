@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api-level: [28, 30]
+        api-level: [30, 33, 34]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,11 +63,16 @@ jobs:
             install.log
             install2.log
             install_trace.log
+            dexopt.log
             pkg.list
+            pkg_dump.txt
+            pkg_dump_full.txt
             launch.log
             focus.txt
             proc.txt
+            proc2.txt
             crash.log
             main.log
+            our.log
             verdict.txt
           if-no-files-found: ignore
